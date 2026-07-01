@@ -1,0 +1,44 @@
+
+void setup() {
+  Serial.begin(921600); // Inicializa a Serial na velocidade do arquivo original
+  pinMode(5, OUTPUT);   // Motor Esquerdo - Frente
+  pinMode(6, OUTPUT);   // Motor Esquerdo - Trás
+  pinMode(7, OUTPUT);   // Motor Direita - Frente
+  pinMode(8, OUTPUT);   // Motor Direita - Trás
+  Serial.println("Robo Pronto! Use W, A, S, D no terminal.");
+}
+
+void loop() {
+  if(Serial.available() > 0) {
+    char command = Serial.read();
+    
+    digitalWrite(5, LOW); digitalWrite(6, LOW);
+    digitalWrite(7, LOW); digitalWrite(8, LOW);
+
+    switch(command) {
+      case 'W': case 'w':
+        Serial.println("Forward");
+        digitalWrite(5, HIGH); // Esquerda Frente
+        digitalWrite(7, HIGH); // Direita Frente
+        break;
+      case 'S': case 's':
+        Serial.println("Reverse");
+        digitalWrite(6, HIGH); // Esquerda Trás
+        digitalWrite(8, HIGH); // Direita Trás
+        break;
+      case 'A': case 'a':
+        Serial.println("Rotate Left");
+        digitalWrite(6, HIGH); // Esquerda Trás
+        digitalWrite(7, HIGH); // Direita Frente
+        break;
+      case 'D': case 'd':
+        Serial.println("Rotate Right");
+        digitalWrite(5, HIGH); // Esquerda Frente
+        digitalWrite(8, HIGH); // Direita Trás
+        break;
+      default:
+        Serial.println("Stop");
+        break;
+    }
+  }
+}
