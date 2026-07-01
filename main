@@ -1,0 +1,51 @@
+#include <avr/io.h>
+
+#define F_CPU 16000000UL
+#define BAUD 921600
+#define MYUBRR ((F_CPU / (BAUD * 16UL)) - 1)
+
+
+void USART_Init(unsigned int ubrr) {
+    UBRR0H = (unsigned char)(ubrr >> 8);
+    UBRR0L = (unsigned char)ubrr;
+    UCSR0B = (1 << RXEN0) | (1 << TXEN0); // Habilita RX e TX
+    UCSR0C = (1 << UCSZ01) | (1 << UCSZ00); // 8 bits de dados
+}
+
+int main(void) {
+    USART_Init(MYUBRR);
+    
+    
+    DDRD |= (1 << DDD5) | (1 << DDD6) | (1 << DDD7);
+    DDRB |= (1 << DDB0);
+
+    while (1) {
+
+        while (!(UCSR0A & (1 << RXC0))); 
+        unsigned char command = UDR0;
+
+        PORTD &= ~((1 << PORTD5) | (1 << PORTD6) | (1 << PORTD7));
+        PORTB &= ~(1 << PORTB0);
+
+      
+        switch (command) {
+            case 'W': case 'w': // Frente
+                PORTD |= (1 << PORTD5) | (1 << PORTD7); 
+                break;
+            case 'S': case 's': // Ré
+                PORTD |= (1 << PORTD6);
+                PORTB |= (1 << PORTB0); 
+                break;
+            case 'A': case 'a': // Giro Esquerda
+                PORTD |= (1 << PORTD6) | (1 << PORTD7); 
+                break;
+            case 'D': case 'd': // Giro Direita
+                PORTD |= (1 << PORTD5);
+                PORTB |= (1 << PORTB0); 
+                break;
+            default: // Qualquer outra tecla para o robô
+                break;
+        }
+    }
+    return 0;
+}
