@@ -1,44 +1,212 @@
+/*************************************************
+ * Versão Planificada e Adaptada para Simulação Wokwi
+ * Baseado no código original de: Alex Grutter
+ *************************************************/
 
-void setup() {
-  Serial.begin(921600); // Inicializa a Serial na velocidade do arquivo original
-  pinMode(5, OUTPUT);   // Motor Esquerdo - Frente
-  pinMode(6, OUTPUT);   // Motor Esquerdo - Trás
-  pinMode(7, OUTPUT);   // Motor Direita - Frente
-  pinMode(8, OUTPUT);   // Motor Direita - Trás
-  Serial.println("Robo Pronto! Use W, A, S, D no terminal.");
+typedef enum {
+  MOTOR_STATE_OFF = 0,
+  MOTOR_STATE_ON = 1,
+  MOTOR_STATE_FORWARD = 0,
+  MOTOR_STATE_REVERSE = 1
+} motor_substate_t;
+
+typedef struct {
+  motor_substate_t left_en;
+  motor_substate_t right_en;
+  motor_substate_t left_dir;
+  motor_substate_t right_dir;
+} motor_state_t;
+
+/*************************************************
+ * 2. Definições de Tipos e Estruturas (Ex-encoder.h)
+ *************************************************/
+typedef struct {
+  unsigned int data_min;
+  unsigned int data_max;
+  unsigned int count;
+} encoder_data_t;
+
+/*************************************************
+ * 3. Variáveis Globais
+ *************************************************/
+motor_state_t g_motor_state;
+encoder_data_t g_left_encoder;
+encoder_data_t g_right_encoder;
+
+/*************************************************
+ * 4. Protótipos das Funções
+ *************************************************/
+void motor_init(void);
+void motor_update(motor_state_t state);
+int process_encoder(void);
+void process_command(void);
+
+/*************************************************
+ * 5. Implementação do Controlo dos Motores via API
+ *************************************************/
+void motor_init(void) 
+{
+  // Mapeamento dos pinos no Wokwi para os LEDs/Motores
+  pinMode(5, OUTPUT); // Roda Esquerda - Frente
+  pinMode(6, OUTPUT); // Roda Esquerda - Ré
+  pinMode(7, OUTPUT); // Roda Direita  - Frente
+  pinMode(8, OUTPUT); // Roda Direita  - Ré
 }
 
-void loop() {
-  if(Serial.available() > 0) {
-    char command = Serial.read();
-    
-    digitalWrite(5, LOW); digitalWrite(6, LOW);
-    digitalWrite(7, LOW); digitalWrite(8, LOW);
+void motor_update(motor_state_t state) 
+{
+  // Desliga todos os pinos antes de aplicar o novo estado
+  digitalWrite(5, LOW); digitalWrite(6, LOW);
+  digitalWrite(7, LOW); digitalWrite(8, LOW);
 
-    switch(command) {
-      case 'W': case 'w':
+  // Roda Esquerda
+  if (state.left_en == MOTOR_STATE_ON) {
+    if (state.left_dir == MOTOR_STATE_FORWARD) {
+      digitalWrite(5, HIGH);
+    } else {
+      digitalWrite(6, HIGH);
+    }
+  }
+
+  // Roda Direita
+  if (state.right_en == MOTOR_STATE_ON) {
+    if (state.right_dir == MOTOR_STATE_FORWARD) {
+      digitalWrite(7, HIGH);
+    } else {
+      digitalWrite(8, HIGH);
+    }
+  }
+}
+
+int process_encoder(void) 
+{
+  // Retorna 0 (falso) para simular que não há novos dados de sensores,
+  // já que estamos a validar apenas a lógica de movimentação por LEDs.
+  return 0; 
+}
+
+/*************************************************
+ * 6. Função setup()
+ *************************************************/
+void setup() 
+{
+  /* Inicializa os pinos mapeados */
+  motor_init();
+
+  /* Garante os motores inicialmente desligados */
+  g_motor_state.left_en = MOTOR_STATE_OFF;
+  g_motor_state.right_en = MOTOR_STATE_OFF;
+  g_motor_state.left_dir = MOTOR_STATE_FORWARD;
+  g_motor_state.right_dir = MOTOR_STATE_FORWARD;
+  motor_update(g_motor_state);
+
+  /* Abre o canal Serial a 921600 bps */
+  Serial.begin(921600);
+  Serial.println("Wokwi Pronto! Use W, A, S, D, Q, E. Pressione outra tecla para parar.");
+}
+
+/*************************************************
+ * 7. Função loop()
+ *************************************************/
+void loop() 
+{
+  /* Verifica e processa comandos enviados pelo teclado */
+  process_command();
+  process_encoder();
+}
+
+/*************************************************
+ * 8. Máquina de Estados (process_command)
+ *************************************************/
+void process_command(void)
+{
+  int command = 0;
+  if(Serial.available() > 0)
+  {
+    command = Serial.read();
+    
+    // Filtro para ignorar o "Enter" (\n ou \r) enviado pelo terminal do Wokwi
+    if (command == '\n' || command == '\r') {
+      return;
+    }
+
+    switch(command)
+    {
+      case 'W':
+      case 'w':
         Serial.println("Forward");
-        digitalWrite(5, HIGH); // Esquerda Frente
-        digitalWrite(7, HIGH); // Direita Frente
-        break;
-      case 'S': case 's':
-        Serial.println("Reverse");
-        digitalWrite(6, HIGH); // Esquerda Trás
-        digitalWrite(8, HIGH); // Direita Trás
-        break;
-      case 'A': case 'a':
+        g_motor_state.left_en = MOTOR_STATE_ON;
+        g_motor_state.right_en = MOTOR_STATE_ON;
+        g_motor_state.left_dir = MOTOR_STATE_FORWARD;
+        g_motor_state.right_dir = MOTOR_STATE_FORWARD;
+        motor_update(g_motor_state);
+      break;
+  
+      case 'A':
+      case 'a':
         Serial.println("Rotate Left");
-        digitalWrite(6, HIGH); // Esquerda Trás
-        digitalWrite(7, HIGH); // Direita Frente
-        break;
-      case 'D': case 'd':
+        g_motor_state.left_en = MOTOR_STATE_ON;
+        g_motor_state.right_en = MOTOR_STATE_ON;
+        g_motor_state.left_dir = MOTOR_STATE_REVERSE;
+        g_motor_state.right_dir = MOTOR_STATE_FORWARD;
+        motor_update(g_motor_state);
+      break;
+  
+      case 'S':
+      case 's':
+        Serial.println("Reverse");
+        g_motor_state.left_en = MOTOR_STATE_ON;
+        g_motor_state.right_en = MOTOR_STATE_ON;
+        g_motor_state.left_dir = MOTOR_STATE_REVERSE;
+        g_motor_state.right_dir = MOTOR_STATE_REVERSE;
+        motor_update(g_motor_state);
+      break;
+  
+      case 'D':
+      case 'd':
         Serial.println("Rotate Right");
-        digitalWrite(5, HIGH); // Esquerda Frente
-        digitalWrite(8, HIGH); // Direita Trás
-        break;
+        g_motor_state.left_en = MOTOR_STATE_ON;
+        g_motor_state.right_en = MOTOR_STATE_ON;
+        g_motor_state.left_dir = MOTOR_STATE_FORWARD;
+        g_motor_state.right_dir = MOTOR_STATE_REVERSE;
+        motor_update(g_motor_state);
+      break;
+      
+      case 'Q':
+      case 'q':
+        Serial.println("Turn Left");
+        g_motor_state.left_en = MOTOR_STATE_ON;
+        g_motor_state.right_en = MOTOR_STATE_OFF;
+        g_motor_state.left_dir = MOTOR_STATE_FORWARD;
+        g_motor_state.right_dir = MOTOR_STATE_FORWARD;
+        motor_update(g_motor_state);
+      break;
+      
+      case 'E':
+      case 'e':
+        Serial.println("Turn Right");
+        g_motor_state.left_en = MOTOR_STATE_OFF;
+        g_motor_state.right_en = MOTOR_STATE_ON;
+        g_motor_state.left_dir = MOTOR_STATE_FORWARD;
+        g_motor_state.right_dir = MOTOR_STATE_FORWARD;
+        motor_update(g_motor_state);
+      break;
+  
+      case 'R':
+      case 'r':
+        Serial.println("Resetting Encoder Min/Max");
+        g_left_encoder.data_min = 0xFFFF;
+        g_left_encoder.data_max = 0;
+        g_right_encoder.data_min = 0xFFFF;
+        g_right_encoder.data_max = 0;
+      break;
+  
       default:
         Serial.println("Stop");
-        break;
+        g_motor_state.left_en = MOTOR_STATE_OFF;
+        g_motor_state.right_en = MOTOR_STATE_OFF;
+        motor_update(g_motor_state);
+      break;
     }
   }
 }
